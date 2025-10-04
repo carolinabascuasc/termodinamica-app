@@ -1,0 +1,4 @@
+streamlit
+CoolProp
+scipy
+numpy
