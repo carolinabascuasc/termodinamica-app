@@ -79,7 +79,12 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
-            
+            if abs(P - P_sat)/P_sat < 1e-3:
+        region = "Mezcla saturada"
+        x = 0.5  # valor medio por defecto si no se conoce
+        P = P_sat
+        V = v_l + x*(v_v - v_l)
+    else:
             rho = CP.PropsSI("D","T",T,"P",P,fluido)
             V = 1/rho
             
