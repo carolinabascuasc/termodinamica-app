@@ -69,22 +69,27 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
     val2_SI = to_SI(var2, val2)
     
     try:
-        # 1) T y P conocidos
+        # -------------------------
+        # T y P conocidos
+        # -------------------------
         if (var1=="T" and var2=="P") or (var1=="P" and var2=="T"):
             T = val1_SI if var1=="T" else val2_SI
             P = val1_SI if var1=="P" else val2_SI
 
-            # Presión de saturación
+            # Saturación
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
 
-            # Manejo del caso de mezcla saturada exacta
-            if abs(P - P_sat)/P_sat < 1e-3:
+            # Si el punto está en la línea de saturación
+            if abs(P - P_sat)/P_sat < 1e-6:
                 region = "Mezcla saturada"
-                x = 0.5  # valor inicial para título
+                x = 0.5  # inicial
                 P = P_sat
                 V = v_l + x*(v_v - v_l)
+                h = CP.PropsSI("H","T",T,"Q",x,fluido)
+                u = CP.PropsSI("U","T",T,"Q",x,fluido)
+                s = CP.PropsSI("S","T",T,"Q",x,fluido)
             else:
                 rho = CP.PropsSI("D","T",T,"P",P,fluido)
                 V = 1/rho
@@ -97,8 +102,13 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 else:
                     region = "Mezcla saturada"
                     x = (V - v_l)/(v_v - v_l)
+                h = CP.PropsSI("H","T",T,"P",P,fluido)
+                u = CP.PropsSI("U","T",T,"P",P,fluido)
+                s = CP.PropsSI("S","T",T,"P",P,fluido)
 
-        # 2) T y V conocidos
+        # -------------------------
+        # T y V conocidos
+        # -------------------------
         elif (var1=="T" and var2=="V") or (var1=="V" and var2=="T"):
             T = val1_SI if var1=="T" else val2_SI
             V = val1_SI if var1=="V" else val2_SI
@@ -119,7 +129,13 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 P = CP.PropsSI("P","T",T,"D",1/V,fluido)
                 x = None
 
-        # 3) P y V conocidos
+            h = CP.PropsSI("H","T",T,"P",P,fluido) if x is None else CP.PropsSI("H","T",T,"Q",x,fluido)
+            u = CP.PropsSI("U","T",T,"P",P,fluido) if x is None else CP.PropsSI("U","T",T,"Q",x,fluido)
+            s = CP.PropsSI("S","T",T,"P",P,fluido) if x is None else CP.PropsSI("S","T",T,"Q",x,fluido)
+
+        # -------------------------
+        # P y V conocidos
+        # -------------------------
         elif (var1=="P" and var2=="V") or (var1=="V" and var2=="P"):
             P = val1_SI if var1=="P" else val2_SI
             V = val1_SI if var1=="V" else val2_SI
@@ -140,14 +156,13 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 region = "Vapor sobrecalentado"
                 x = None
 
-        else:
-            st.error("Esta combinación de variables aún no está implementada.")
-            return None
+            h = CP.PropsSI("H","T",T,"P",P,fluido) if x is None else CP.PropsSI("H","T",T,"Q",x,fluido)
+            u = CP.PropsSI("U","T",T,"P",P,fluido) if x is None else CP.PropsSI("U","T",T,"Q",x,fluido)
+            s = CP.PropsSI("S","T",T,"P",P,fluido) if x is None else CP.PropsSI("S","T",T,"Q",x,fluido)
 
-        # Calcular h, u, s
-        h = CP.PropsSI("H","T",T,"P",P,fluido)
-        u = CP.PropsSI("U","T",T,"P",P,fluido)
-        s = CP.PropsSI("S","T",T,"P",P,fluido)
+        else:
+            st.error("Combinación de variables aún no soportada.")
+            return None
 
         return {
             "T": T, "P": P, "V": V,
@@ -176,3 +191,4 @@ if st.button("Calcular propiedades"):
             st.write(f"Título de vapor: {props['x']:.4f}")
         else:
             st.write("Título de vapor: No aplicable")
+
