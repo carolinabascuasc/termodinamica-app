@@ -68,45 +68,44 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
     val1_SI = to_SI(var1, val1)
     val2_SI = to_SI(var2, val2)
     
-    # Casos principales
     try:
         # 1) T y P conocidos
-        if var1=="T" and var2=="P" or var1=="P" and var2=="T":
+        if (var1=="T" and var2=="P") or (var1=="P" and var2=="T"):
             T = val1_SI if var1=="T" else val2_SI
             P = val1_SI if var1=="P" else val2_SI
-            
+
             # Presión de saturación
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
+
+            # Manejo del caso de mezcla saturada exacta
             if abs(P - P_sat)/P_sat < 1e-3:
-        region = "Mezcla saturada"
-        x = 0.5  # valor medio por defecto si no se conoce
-        P = P_sat
-        V = v_l + x*(v_v - v_l)
-    else:
-            rho = CP.PropsSI("D","T",T,"P",P,fluido)
-            V = 1/rho
-            
-            if V < v_l:
-                region = "Líquido comprimido"
-                x = None
-            elif v_l <= V <= v_v:
                 region = "Mezcla saturada"
-                x = (V - v_l)/(v_v - v_l)
+                x = 0.5  # valor inicial para título
                 P = P_sat
+                V = v_l + x*(v_v - v_l)
             else:
-                region = "Vapor sobrecalentado"
-                x = None
-        
+                rho = CP.PropsSI("D","T",T,"P",P,fluido)
+                V = 1/rho
+                if V < v_l:
+                    region = "Líquido comprimido"
+                    x = None
+                elif V > v_v:
+                    region = "Vapor sobrecalentado"
+                    x = None
+                else:
+                    region = "Mezcla saturada"
+                    x = (V - v_l)/(v_v - v_l)
+
         # 2) T y V conocidos
-        elif var1=="T" and var2=="V" or var1=="V" and var2=="T":
+        elif (var1=="T" and var2=="V") or (var1=="V" and var2=="T"):
             T = val1_SI if var1=="T" else val2_SI
             V = val1_SI if var1=="V" else val2_SI
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
-            
+
             if v_l <= V <= v_v:
                 region = "Mezcla saturada"
                 x = (V - v_l)/(v_v - v_l)
@@ -119,9 +118,9 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 region = "Vapor sobrecalentado"
                 P = CP.PropsSI("P","T",T,"D",1/V,fluido)
                 x = None
-        
+
         # 3) P y V conocidos
-        elif var1=="P" and var2=="V" or var1=="V" and var2=="P":
+        elif (var1=="P" and var2=="V") or (var1=="V" and var2=="P"):
             P = val1_SI if var1=="P" else val2_SI
             V = val1_SI if var1=="V" else val2_SI
             rho = 1/V
@@ -129,7 +128,7 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
-            
+
             if v_l <= V <= v_v:
                 region = "Mezcla saturada"
                 x = (V - v_l)/(v_v - v_l)
@@ -140,21 +139,22 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
             else:
                 region = "Vapor sobrecalentado"
                 x = None
-        
+
         else:
             st.error("Esta combinación de variables aún no está implementada.")
             return None
-        
+
         # Calcular h, u, s
         h = CP.PropsSI("H","T",T,"P",P,fluido)
         u = CP.PropsSI("U","T",T,"P",P,fluido)
         s = CP.PropsSI("S","T",T,"P",P,fluido)
-        
+
         return {
             "T": T, "P": P, "V": V,
             "h": h, "u": u, "s": s,
             "x": x, "region": region
         }
+
     except Exception as e:
         st.error(f"Error al calcular: {e}")
         return None
@@ -176,4 +176,3 @@ if st.button("Calcular propiedades"):
             st.write(f"Título de vapor: {props['x']:.4f}")
         else:
             st.write("Título de vapor: No aplicable")
-
