@@ -10,36 +10,36 @@ st.set_page_config(page_title="Calculadora Termodinámica", layout="wide")
 # Utilidades de unidades
 # -----------------------------
 def to_SI(var, val):
-    """Convierte entrada de ingeniería a SI (valor numérico)."""
-    if var == 'P':   # bar -> Pa
-        return val * 1e5
-    if var == 'T':   # °C -> K
-        return val + 273.15
-    if var in ('H','U'):  # kJ/kg -> J/kg
-        return val * 1e3
-    if var == 'S':   # kJ/kgK -> J/kgK
-        return val * 1e3
-    if var == 'V':   # L/kg -> m3/kg
-        return val / 1000.0
-    if var == 'Q':   # calidad (sin unidad)
-        return val
-    return val
-
-def from_SI(var, val):
-    """Convierte SI a unidades de ingeniería (valor numérico)."""
     if var == 'P':
-        return val / 1e5
+        return val * 1000  # kPa → Pa
     if var == 'T':
-        return val - 273.15
+        return val + 273.15
     if var in ('H','U'):
-        return val / 1e3
+        return val * 1000
     if var == 'S':
-        return val / 1e3
-    if var == 'V':
-        return val * 1000.0
+        return val * 1000
+    if var == 'V':  # ahora ya ingresamos en m³/kg
+        return val
     if var == 'Q':
         return val
     return val
+
+
+def from_SI(var, val):
+    if var == 'P':
+        return val / 1000  # Pa → kPa
+    if var == 'T':
+        return val - 273.15
+    if var in ('H','U'):
+        return val / 1000
+    if var == 'S':
+        return val / 1000
+    if var == 'V':
+        return val  # ya está en m³/kg
+    if var == 'Q':
+        return val
+    return val
+
 
 # -----------------------------
 # Helper: comprobar si PropsSI funciona para par dado (intento directo)
@@ -256,18 +256,19 @@ with st.sidebar:
 col1, col2 = st.columns([1,1])
 with col1:
     st.subheader("Variable 1 (entrada)")
-    v1 = st.selectbox("Selecciona 1ª variable", ["T (°C)","P (bar)","H (kJ/kg)","U (kJ/kg)","S (kJ/kg·K)","V (L/kg)","Q (calidad)"], key="v1")
+    v1 = st.selectbox("Selecciona 1ª variable", ["T (°C)","P (kPa)","H (kJ/kg)","U (kJ/kg)","S (kJ/kg·K)","V (m³/kg)","Q (calidad)"], key="v1")
     val1 = st.number_input("Valor 1", value=100.0, key="val1")
 with col2:
     st.subheader("Variable 2 (entrada)")
-    v2 = st.selectbox("Selecciona 2ª variable", ["P (bar)","T (°C)","H (kJ/kg)","U (kJ/kg)","S (kJ/kg·K)","V (L/kg)","Q (calidad)"], index=1, key="v2")
+    v2 = st.selectbox("Selecciona 2ª variable", ["P (kPa)","T (°C)","H (kJ/kg)","U (kJ/kg)","S (kJ/kg·K)","V (m³/kg)","Q (calidad)"], index=1, key="v2")
     val2 = st.number_input("Valor 2", value=1.0, key="val2")
 
 # map display labels to short codes
 label_to_code = {
-    "P (bar)": "P", "T (°C)": "T", "H (kJ/kg)": "H", "U (kJ/kg)": "U",
-    "S (kJ/kg·K)": "S", "V (L/kg)": "V", "Q (calidad)": "Q"
+    "P (kPa)": "P", "T (°C)": "T", "H (kJ/kg)": "H", "U (kJ/kg)": "U",
+    "S (kJ/kg·K)": "S", "V (m³/kg)": "V", "Q (calidad)": "Q"
 }
+
 var1 = label_to_code[v1]
 var2 = label_to_code[v2]
 
