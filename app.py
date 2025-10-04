@@ -14,7 +14,7 @@ def to_SI(var, val):
     if var == 'S':
         return val * 1000      # kJ/kg·K → J/kg·K
     if var == 'V':
-        return val             # m³/kg ya en SI
+        return val             # m³/kg
     if var == 'Q':
         return val
     return val
@@ -37,7 +37,7 @@ def from_SI(var, val):
 # -----------------------------
 # Interfaz Streamlit
 # -----------------------------
-st.title("Calculadora avanzada de propiedades de fluidos")
+st.title("Calculadora de propiedades termodinámicas")
 
 # Selección de fluido
 fluido = st.selectbox("Selecciona el fluido", ["Water","Air","R134a","R22","R410A"])
@@ -56,19 +56,30 @@ label_to_code = {
     "P (kPa)":"P","T (°C)":"T","H (kJ/kg)":"H","U (kJ/kg)":"U",
     "S (kJ/kg·K)":"S","V (m³/kg)":"V","Q (calidad)":"Q"
 }
-
 var1 = label_to_code[v1_label]
 var2 = label_to_code[v2_label]
 
 # -----------------------------
-# Función para detectar región y propiedades
+# Función para calcular propiedades
 # -----------------------------
 def calcular_propiedades(fluido, var1, val1, var2, val2):
-    # Convertir a SI
     val1_SI = to_SI(var1, val1)
     val2_SI = to_SI(var2, val2)
     
+    # Ajuste de referencia para que coincida con tablas de Cengel
     try:
+        if "R134a" in fluido:
+            # Referencia de líquido saturado a -40°C
+            u_ref = CP.PropsSI("U","T",-40+273.15,"Q",0,fluido)
+            h_ref = CP.PropsSI("H","T",-40+273.15,"Q",0,fluido)
+        elif fluido == "Water":
+            # Referencia de agua líquida a 0°C
+            u_ref = CP.PropsSI("U","T",0+273.15,"Q",0,fluido)
+            h_ref = CP.PropsSI("H","T",0+273.15,"Q",0,fluido)
+        else:
+            u_ref = 0
+            h_ref = 0
+
         # -------------------------
         # T y P conocidos
         # -------------------------
@@ -76,19 +87,17 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
             T = val1_SI if var1=="T" else val2_SI
             P = val1_SI if var1=="P" else val2_SI
 
-            # Saturación
             P_sat = CP.PropsSI("P","T",T,"Q",0,fluido)
             v_l = 1/CP.PropsSI("D","T",T,"Q",0,fluido)
             v_v = 1/CP.PropsSI("D","T",T,"Q",1,fluido)
 
-            # Si el punto está en la línea de saturación
             if abs(P - P_sat)/P_sat < 1e-6:
                 region = "Mezcla saturada"
-                x = 0.5  # inicial
+                x = 0.5
                 P = P_sat
                 V = v_l + x*(v_v - v_l)
-                h = CP.PropsSI("H","T",T,"Q",x,fluido)
-                u = CP.PropsSI("U","T",T,"Q",x,fluido)
+                h = CP.PropsSI("H","T",T,"Q",x,fluido) - h_ref
+                u = CP.PropsSI("U","T",T,"Q",x,fluido) - u_ref
                 s = CP.PropsSI("S","T",T,"Q",x,fluido)
             else:
                 rho = CP.PropsSI("D","T",T,"P",P,fluido)
@@ -102,8 +111,8 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 else:
                     region = "Mezcla saturada"
                     x = (V - v_l)/(v_v - v_l)
-                h = CP.PropsSI("H","T",T,"P",P,fluido)
-                u = CP.PropsSI("U","T",T,"P",P,fluido)
+                h = CP.PropsSI("H","T",T,"P",P,fluido) - h_ref
+                u = CP.PropsSI("U","T",T,"P",P,fluido) - u_ref
                 s = CP.PropsSI("S","T",T,"P",P,fluido)
 
         # -------------------------
@@ -129,8 +138,8 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 P = CP.PropsSI("P","T",T,"D",1/V,fluido)
                 x = None
 
-            h = CP.PropsSI("H","T",T,"P",P,fluido) if x is None else CP.PropsSI("H","T",T,"Q",x,fluido)
-            u = CP.PropsSI("U","T",T,"P",P,fluido) if x is None else CP.PropsSI("U","T",T,"Q",x,fluido)
+            h = CP.PropsSI("H","T",T,"P",P,fluido) - h_ref if x is None else CP.PropsSI("H","T",T,"Q",x,fluido) - h_ref
+            u = CP.PropsSI("U","T",T,"P",P,fluido) - u_ref if x is None else CP.PropsSI("U","T",T,"Q",x,fluido) - u_ref
             s = CP.PropsSI("S","T",T,"P",P,fluido) if x is None else CP.PropsSI("S","T",T,"Q",x,fluido)
 
         # -------------------------
@@ -156,8 +165,8 @@ def calcular_propiedades(fluido, var1, val1, var2, val2):
                 region = "Vapor sobrecalentado"
                 x = None
 
-            h = CP.PropsSI("H","T",T,"P",P,fluido) if x is None else CP.PropsSI("H","T",T,"Q",x,fluido)
-            u = CP.PropsSI("U","T",T,"P",P,fluido) if x is None else CP.PropsSI("U","T",T,"Q",x,fluido)
+            h = CP.PropsSI("H","T",T,"P",P,fluido) - h_ref if x is None else CP.PropsSI("H","T",T,"Q",x,fluido) - h_ref
+            u = CP.PropsSI("U","T",T,"P",P,fluido) - u_ref if x is None else CP.PropsSI("U","T",T,"Q",x,fluido) - u_ref
             s = CP.PropsSI("S","T",T,"P",P,fluido) if x is None else CP.PropsSI("S","T",T,"Q",x,fluido)
 
         else:
@@ -191,4 +200,3 @@ if st.button("Calcular propiedades"):
             st.write(f"Título de vapor: {props['x']:.4f}")
         else:
             st.write("Título de vapor: No aplicable")
-
