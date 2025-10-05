@@ -136,4 +136,3 @@ if st.button("Calcular propiedades"):
             st.write(f"💧 Título (x): {props['Q']:.4f}")
     except Exception as e:
         st.error(e)
-e")
