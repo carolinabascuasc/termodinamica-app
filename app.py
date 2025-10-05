@@ -19,7 +19,7 @@ def from_SI(var, val):
 # ==============================
 # Interfaz Streamlit
 # ==============================
-st.title("💧 Calculadora Termodinámica General")
+st.title("💧 Calculadora Termodinámica General (Cengel Compatible)")
 
 fluido = st.selectbox("Selecciona el fluido", ["Water", "Air", "R134a", "R22", "R410A"])
 
@@ -51,6 +51,7 @@ var2 = label_to_code[v2_label]
 # Función principal de cálculo
 # ==============================
 def calcular(fluido, var1, val1, var2, val2):
+    # Ajuste de nombre para CoolProp
     fluido_CP = fluido.lower() if fluido == "Air" else fluido
 
     val1_SI = to_SI(var1, val1)
@@ -101,16 +102,28 @@ def calcular(fluido, var1, val1, var2, val2):
         P = CP.PropsSI("P", var1, val1_SI, var2, val2_SI, fluido_CP)
         rho = CP.PropsSI("D", var1, val1_SI, var2, val2_SI, fluido_CP)
         V = 1 / rho
-        h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
-        u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
-        s_raw = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
 
-        # Ajuste de entropía para aire
+        # Ajuste de referencia para refrigerantes y aire
         if fluido_CP == "air":
+            s_raw = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
             s_ref = CP.PropsSI('S','T',273.15,'P',101325,'air')
             s = s_raw - s_ref
+            h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
+            u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
+        elif fluido_CP.lower() in ["r134a","r22","r410a"]:
+            # referencia: líquido saturado a -40°C
+            T_ref = -40 + 273.15
+            u_ref = CP.PropsSI("U","T",T_ref,"Q",0,fluido_CP)
+            h_ref = CP.PropsSI("H","T",T_ref,"Q",0,fluido_CP)
+            u_raw = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
+            h_raw = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
+            u = u_raw - u_ref
+            h = h_raw - h_ref
+            s = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
         else:
-            s = s_raw
+            h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
+            u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
+            s = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
 
         # Determinar región
         Tcrit = CP.PropsSI("Tcrit", fluido_CP)
@@ -147,12 +160,4 @@ if st.button("Calcular propiedades"):
         st.success(f"Región: {props['region']}")
         st.write(f"🌡️ Temperatura: {from_SI('T', props['T']):.2f} °C")
         st.write(f"📈 Presión: {from_SI('P', props['P']):.2f} kPa")
-        st.write(f"📦 Volumen específico: {props['V']:.6f} m³/kg")
-        st.write(f"🔥 Entalpía: {from_SI('H', props['h']):.2f} kJ/kg")
-        st.write(f"⚙️ Energía interna: {from_SI('U', props['u']):.2f} kJ/kg")
-        st.write(f"📊 Entropía: {from_SI('S', props['s']):.4f} kJ/kg·K")
-        if props["Q"] is not None:
-            st.write(f"💧 Título (x): {props['Q']:.4f}")
-    except Exception as e:
-        st.error(e)
-
+        st.write(f"📦 Volumen específico: {props['V']:.6f}
