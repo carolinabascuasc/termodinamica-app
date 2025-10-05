@@ -51,7 +51,6 @@ var2 = label_to_code[v2_label]
 # Función principal de cálculo
 # ==============================
 def calcular(fluido, var1, val1, var2, val2):
-    # Ajuste de nombre para CoolProp
     fluido_CP = fluido.lower() if fluido == "Air" else fluido
 
     val1_SI = to_SI(var1, val1)
@@ -103,7 +102,7 @@ def calcular(fluido, var1, val1, var2, val2):
         rho = CP.PropsSI("D", var1, val1_SI, var2, val2_SI, fluido_CP)
         V = 1 / rho
 
-        # Ajuste de referencia para refrigerantes y aire
+        # Ajuste de referencia
         if fluido_CP == "air":
             s_raw = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
             s_ref = CP.PropsSI('S','T',273.15,'P',101325,'air')
@@ -111,7 +110,6 @@ def calcular(fluido, var1, val1, var2, val2):
             h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
             u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
         elif fluido_CP.lower() in ["r134a","r22","r410a"]:
-            # referencia: líquido saturado a -40°C
             T_ref = -40 + 273.15
             u_ref = CP.PropsSI("U","T",T_ref,"Q",0,fluido_CP)
             h_ref = CP.PropsSI("H","T",T_ref,"Q",0,fluido_CP)
@@ -157,6 +155,7 @@ def calcular(fluido, var1, val1, var2, val2):
 if st.button("Calcular propiedades"):
     try:
         props = calcular(fluido, var1, v1_val, var2, v2_val)
+        st.success(f"Región: {props['region']}")
         st.write(f"🌡️ Temperatura: {from_SI('T', props['T']):.2f} °C")
         st.write(f"📈 Presión: {from_SI('P', props['P']):.2f} kPa")
         st.write(f"📦 Volumen específico: {props['V']:.6f} m³/kg")
@@ -164,4 +163,6 @@ if st.button("Calcular propiedades"):
         st.write(f"⚙️ Energía interna: {from_SI('U', props['u']):.2f} kJ/kg")
         st.write(f"📊 Entropía: {from_SI('S', props['s']):.4f} kJ/kg·K")
         if props["Q"] is not None:
-                st.write(f"💧 Título (x): {props['Q']:.4f}")
+            st.write(f"💧 Título (x): {props['Q']:.4f}")
+    except Exception as e:
+        st.error(f"Error al calcular propiedades: {e}")
