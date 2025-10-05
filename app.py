@@ -101,7 +101,21 @@ def calcular(fluido, var1, val1, var2, val2):
         V = val1_SI if var1 == "V" else val2_SI
         rho_target = 1 / V
 
-        # Bisección de temperatura
+        # Verificar mezcla saturada a esa P
+        try:
+            v_l = 1 / CP.PropsSI("D","P",P,"Q",0,fluido_CP)
+            v_v = 1 / CP.PropsSI("D","P",P,"Q",1,fluido_CP)
+            if v_l <= V <= v_v:
+                Q = (V - v_l)/(v_v - v_l)
+                T = CP.PropsSI("T","P",P,"Q",Q,fluido_CP)
+                h = CP.PropsSI("H","P",P,"Q",Q,fluido_CP)
+                u = CP.PropsSI("U","P",P,"Q",Q,fluido_CP)
+                s = CP.PropsSI("S","P",P,"Q",Q,fluido_CP)
+                return {"T":T,"P":P,"V":V,"h":h,"u":u,"s":s,"Q":Q,"region":"Mezcla saturada"}
+        except:
+            pass
+
+        # Bisección de temperatura para P+V
         T_low, T_high = 273.15, CP.PropsSI("Tcrit", fluido_CP)
         for _ in range(100):
             T_mid = (T_low + T_high) / 2
@@ -133,8 +147,19 @@ def calcular(fluido, var1, val1, var2, val2):
             s = s_raw - s_ref
             h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
             u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
-        elif fluido_CP.lower() in ["r134a","r22","r410a"]:
-            T_ref = -40 + 273.15
+        elif fluido_CP.lower() in ["r134a","r22","r410a","water"]:
+            # Forzar vapor sobrecalentado si U > U_vapor_saturado
+            P_test = P
+            try:
+                u_vapor_sat = CP.PropsSI("U","P",P_test,"Q",1,fluido_CP)
+                u_liq_sat = CP.PropsSI("U","P",P_test,"Q",0,fluido_CP)
+                if val1_SI in [to_SI("U", val1), to_SI("U", val2)] and u > u_vapor_sat:
+                    region = "Vapor sobrecalentado"
+            except:
+                pass
+
+            # Ajuste general
+            T_ref = 273.15
             u_ref = CP.PropsSI("U","T",T_ref,"Q",0,fluido_CP)
             h_ref = CP.PropsSI("H","T",T_ref,"Q",0,fluido_CP)
             u_raw = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
@@ -151,9 +176,7 @@ def calcular(fluido, var1, val1, var2, val2):
         Tcrit = CP.PropsSI("Tcrit", fluido_CP)
         Pcrit = CP.PropsSI("Pcrit", fluido_CP)
         Q = None
-        if T >= Tcrit or P >= Pcrit:
-            region = "Supercrítico / Vapor sobrecalentado"
-        else:
+        if 'region' not in locals():
             try:
                 Psat = CP.PropsSI("P","T",T,"Q",0,fluido_CP)
                 v_l = 1 / CP.PropsSI("D","T",T,"Q",0,fluido_CP)
