@@ -1,5 +1,56 @@
+import streamlit as st
+import CoolProp.CoolProp as CP
+
+# ==============================
+# Conversión de unidades
+# ==============================
+def to_SI(var, val):
+    if var == 'P': return val * 1000  # kPa → Pa
+    if var == 'T': return val + 273.15  # °C → K
+    if var in ('H', 'U', 'S'): return val * 1000  # kJ/kg → J/kg
+    return val
+
+def from_SI(var, val):
+    if var == 'P': return val / 1000  # Pa → kPa
+    if var == 'T': return val - 273.15  # K → °C
+    if var in ('H', 'U', 'S'): return val / 1000  # J/kg → kJ/kg
+    return val
+
+# ==============================
+# Interfaz Streamlit
+# ==============================
+st.title("💧 Calculadora Termodinámica General")
+
+fluido = st.selectbox("Selecciona el fluido", ["Water", "Air", "R134a", "R22", "R410A"])
+
+variables = [
+    "T (°C)", "P (kPa)", "H (kJ/kg)", "U (kJ/kg)",
+    "S (kJ/kg·K)", "V (m³/kg)", "Q (calidad)"
+]
+
+v1_label = st.selectbox("Variable 1", variables)
+v2_label = st.selectbox("Variable 2", variables, index=1)
+
+v1_val = st.number_input(f"Valor de {v1_label}", format="%.6f")
+v2_val = st.number_input(f"Valor de {v2_label}", format="%.6f")
+
+label_to_code = {
+    "P (kPa)": "P",
+    "T (°C)": "T",
+    "H (kJ/kg)": "H",
+    "U (kJ/kg)": "U",
+    "S (kJ/kg·K)": "S",
+    "V (m³/kg)": "V",
+    "Q (calidad)": "Q"
+}
+
+var1 = label_to_code[v1_label]
+var2 = label_to_code[v2_label]
+
+# ==============================
+# Función principal de cálculo
+# ==============================
 def calcular(fluido, var1, val1, var2, val2):
-    # Ajuste para air
     fluido_CP = fluido.lower() if fluido == "Air" else fluido
 
     val1_SI = to_SI(var1, val1)
@@ -86,4 +137,22 @@ def calcular(fluido, var1, val1, var2, val2):
 
     except Exception as e:
         raise ValueError(f"Error al calcular: {e}")
+
+# ==============================
+# Ejecución
+# ==============================
+if st.button("Calcular propiedades"):
+    try:
+        props = calcular(fluido, var1, v1_val, var2, v2_val)
+        st.success(f"Región: {props['region']}")
+        st.write(f"🌡️ Temperatura: {from_SI('T', props['T']):.2f} °C")
+        st.write(f"📈 Presión: {from_SI('P', props['P']):.2f} kPa")
+        st.write(f"📦 Volumen específico: {props['V']:.6f} m³/kg")
+        st.write(f"🔥 Entalpía: {from_SI('H', props['h']):.2f} kJ/kg")
+        st.write(f"⚙️ Energía interna: {from_SI('U', props['u']):.2f} kJ/kg")
+        st.write(f"📊 Entropía: {from_SI('S', props['s']):.4f} kJ/kg·K")
+        if props["Q"] is not None:
+            st.write(f"💧 Título (x): {props['Q']:.4f}")
+    except Exception as e:
+        st.error(e)
 
