@@ -56,7 +56,7 @@ def calcular(fluido, var1, val1, var2, val2):
     val1_SI = to_SI(var1, val1)
     val2_SI = to_SI(var2, val2)
 
-    # Caso especial: (T, V) o (V, T)
+    # === CASO T+V ===
     if set([var1, var2]) == set(["T", "V"]):
         T = val1_SI if var1 == "T" else val2_SI
         V = val1_SI if var1 == "V" else val2_SI
@@ -77,7 +77,7 @@ def calcular(fluido, var1, val1, var2, val2):
                     P = Psat
                     return {"T":T,"P":P,"V":V,"h":h,"u":u,"s":s,"Q":Q,"region":"Mezcla saturada"}
 
-        # Para otros casos: bisección de presión
+        # Bisección de presión para T+V
         P_low, P_high = 100, 1e8
         for _ in range(100):
             P_mid = (P_low + P_high) / 2
@@ -89,9 +89,33 @@ def calcular(fluido, var1, val1, var2, val2):
                 P_high = P_mid
             else:
                 P_low = P_mid
-            if abs(rho_mid - rho_target) / rho_target < 1e-6:
+            if abs(rho_mid - rho_target)/rho_target < 1e-6:
                 break
         P = P_mid
+        var1, val1_SI = "T", T
+        var2, val2_SI = "P", P
+
+    # === CASO P+V ===
+    if set([var1, var2]) == set(["P", "V"]):
+        P = val1_SI if var1 == "P" else val2_SI
+        V = val1_SI if var1 == "V" else val2_SI
+        rho_target = 1 / V
+
+        # Bisección de temperatura
+        T_low, T_high = 273.15, CP.PropsSI("Tcrit", fluido_CP)
+        for _ in range(100):
+            T_mid = (T_low + T_high) / 2
+            try:
+                rho_mid = CP.PropsSI("D", "T", T_mid, "P", P, fluido_CP)
+            except:
+                rho_mid = rho_target * 2
+            if rho_mid > rho_target:
+                T_high = T_mid
+            else:
+                T_low = T_mid
+            if abs(rho_mid - rho_target)/rho_target < 1e-6:
+                break
+        T = T_mid
         var1, val1_SI = "T", T
         var2, val2_SI = "P", P
 
