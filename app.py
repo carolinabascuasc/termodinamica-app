@@ -157,7 +157,11 @@ def calcular(fluido, var1, val1, var2, val2):
 if st.button("Calcular propiedades"):
     try:
         props = calcular(fluido, var1, v1_val, var2, v2_val)
-        st.success(f"Región: {props['region']}")
         st.write(f"🌡️ Temperatura: {from_SI('T', props['T']):.2f} °C")
         st.write(f"📈 Presión: {from_SI('P', props['P']):.2f} kPa")
-        st.write(f"📦 Volumen específico: {props['V']:.6f}
+        st.write(f"📦 Volumen específico: {props['V']:.6f} m³/kg")
+        st.write(f"🔥 Entalpía: {from_SI('H', props['h']):.2f} kJ/kg")
+        st.write(f"⚙️ Energía interna: {from_SI('U', props['u']):.2f} kJ/kg")
+        st.write(f"📊 Entropía: {from_SI('S', props['s']):.4f} kJ/kg·K")
+        if props["Q"] is not None:
+                st.write(f"💧 Título (x): {props['Q']:.4f}")
