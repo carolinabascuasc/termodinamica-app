@@ -21,7 +21,7 @@ def from_SI(var, val):
 # ==============================
 st.title("💧 Calculadora Termodinámica General")
 
-fluido = st.selectbox("Selecciona el fluido", ["Water", "Air", "R134a", "R22", "R410A"])
+fluido = st.selectbox("Selecciona el fluido", ["Water", "air", "R134a", "R22", "R410A"])
 
 variables = [
     "T (°C)", "P (kPa)", "H (kJ/kg)", "U (kJ/kg)",
