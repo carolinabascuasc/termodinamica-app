@@ -19,7 +19,7 @@ def from_SI(var, val):
 # ==============================
 # Interfaz Streamlit
 # ==============================
-st.title("💧 Calculadora Termodinámica General (Cengel Compatible)")
+st.title("💧 Calculadora Termodinámica General")
 
 fluido = st.selectbox("Selecciona el fluido", ["Water", "Air", "R134a", "R22", "R410A"])
 
@@ -48,150 +48,73 @@ var1 = label_to_code[v1_label]
 var2 = label_to_code[v2_label]
 
 # ==============================
-# Función principal de cálculo
+# Función principal
 # ==============================
 def calcular(fluido, var1, val1, var2, val2):
-    fluido_CP = fluido.lower() if fluido == "Air" else fluido
-
     val1_SI = to_SI(var1, val1)
     val2_SI = to_SI(var2, val2)
 
-    # === CASO T+V ===
+    # Caso especial: (T, V) o (V, T)
     if set([var1, var2]) == set(["T", "V"]):
         T = val1_SI if var1 == "T" else val2_SI
         V = val1_SI if var1 == "V" else val2_SI
         rho_target = 1 / V
-
-        # Mezcla saturada agua
-        if fluido_CP.lower() == "water":
-            T_crit = CP.PropsSI("Tcrit","Water")
-            if T < T_crit:
-                Psat = CP.PropsSI("P","T",T,"Q",0,"Water")
-                v_l = 1 / CP.PropsSI("D","T",T,"Q",0,"Water")
-                v_v = 1 / CP.PropsSI("D","T",T,"Q",1,"Water")
-                if v_l <= V <= v_v:
-                    Q = (V - v_l) / (v_v - v_l)
-                    h = (1-Q)*CP.PropsSI("H","T",T,"Q",0,"Water") + Q*CP.PropsSI("H","T",T,"Q",1,"Water")
-                    u = (1-Q)*CP.PropsSI("U","T",T,"Q",0,"Water") + Q*CP.PropsSI("U","T",T,"Q",1,"Water")
-                    s = (1-Q)*CP.PropsSI("S","T",T,"Q",0,"Water") + Q*CP.PropsSI("S","T",T,"Q",1,"Water")
-                    P = Psat
-                    return {"T":T,"P":P,"V":V,"h":h,"u":u,"s":s,"Q":Q,"region":"Mezcla saturada"}
-
-        # Bisección de presión para T+V
-        P_low, P_high = 100, 1e8
-        for _ in range(100):
-            P_mid = (P_low + P_high) / 2
-            try:
-                rho_mid = CP.PropsSI("D", "T", T, "P", P_mid, fluido_CP)
-            except:
-                rho_mid = rho_target * 2
-            if rho_mid > rho_target:
-                P_high = P_mid
-            else:
-                P_low = P_mid
-            if abs(rho_mid - rho_target)/rho_target < 1e-6:
-                break
-        P = P_mid
-        var1, val1_SI = "T", T
-        var2, val2_SI = "P", P
-
-    # === CASO P+V ===
-    if set([var1, var2]) == set(["P", "V"]):
-        P = val1_SI if var1 == "P" else val2_SI
-        V = val1_SI if var1 == "V" else val2_SI
-        rho_target = 1 / V
-
-        # Verificar mezcla saturada a esa P
         try:
-            v_l = 1 / CP.PropsSI("D","P",P,"Q",0,fluido_CP)
-            v_v = 1 / CP.PropsSI("D","P",P,"Q",1,fluido_CP)
-            if v_l <= V <= v_v:
-                Q = (V - v_l)/(v_v - v_l)
-                T = CP.PropsSI("T","P",P,"Q",Q,fluido_CP)
-                h = CP.PropsSI("H","P",P,"Q",Q,fluido_CP)
-                u = CP.PropsSI("U","P",P,"Q",Q,fluido_CP)
-                s = CP.PropsSI("S","P",P,"Q",Q,fluido_CP)
-                return {"T":T,"P":P,"V":V,"h":h,"u":u,"s":s,"Q":Q,"region":"Mezcla saturada"}
-        except:
-            pass
+            P_low, P_high = 100, 1e8  # Pa
+            for _ in range(100):
+                P_mid = (P_low + P_high) / 2
+                rho_mid = CP.PropsSI("D", "T", T, "P", P_mid, fluido)
+                if rho_mid > rho_target:
+                    P_high = P_mid
+                else:
+                    P_low = P_mid
+                if abs(rho_mid - rho_target) / rho_target < 1e-6:
+                    break
+            P = P_mid
+        except Exception as e:
+            raise ValueError(f"No se pudo ajustar la presión: {e}")
 
-        # Bisección de temperatura para P+V
-        T_low, T_high = 273.15, CP.PropsSI("Tcrit", fluido_CP)
-        for _ in range(100):
-            T_mid = (T_low + T_high) / 2
-            try:
-                rho_mid = CP.PropsSI("D", "T", T_mid, "P", P, fluido_CP)
-            except:
-                rho_mid = rho_target * 2
-            if rho_mid > rho_target:
-                T_high = T_mid
-            else:
-                T_low = T_mid
-            if abs(rho_mid - rho_target)/rho_target < 1e-6:
-                break
-        T = T_mid
         var1, val1_SI = "T", T
         var2, val2_SI = "P", P
 
     try:
-        # Propiedades principales
-        T = CP.PropsSI("T", var1, val1_SI, var2, val2_SI, fluido_CP)
-        P = CP.PropsSI("P", var1, val1_SI, var2, val2_SI, fluido_CP)
-        rho = CP.PropsSI("D", var1, val1_SI, var2, val2_SI, fluido_CP)
+        T = CP.PropsSI("T", var1, val1_SI, var2, val2_SI, fluido)
+        P = CP.PropsSI("P", var1, val1_SI, var2, val2_SI, fluido)
+        rho = CP.PropsSI("D", var1, val1_SI, var2, val2_SI, fluido)
+        h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido)
+        u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido)
+        s = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido)
         V = 1 / rho
 
-        # Ajuste de referencia
-        if fluido_CP == "air":
-            s_raw = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
-            s_ref = CP.PropsSI('S','T',273.15,'P',101325,'air')
-            s = s_raw - s_ref
-            h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
-            u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
-        elif fluido_CP.lower() in ["r134a","r22","r410a","water"]:
-            # Forzar vapor sobrecalentado si U > U_vapor_saturado
-            P_test = P
-            try:
-                u_vapor_sat = CP.PropsSI("U","P",P_test,"Q",1,fluido_CP)
-                u_liq_sat = CP.PropsSI("U","P",P_test,"Q",0,fluido_CP)
-                if val1_SI in [to_SI("U", val1), to_SI("U", val2)] and u > u_vapor_sat:
-                    region = "Vapor sobrecalentado"
-            except:
-                pass
-
-            # Ajuste general
-            T_ref = 273.15
-            u_ref = CP.PropsSI("U","T",T_ref,"Q",0,fluido_CP)
-            h_ref = CP.PropsSI("H","T",T_ref,"Q",0,fluido_CP)
-            u_raw = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
-            h_raw = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
-            u = u_raw - u_ref
-            h = h_raw - h_ref
-            s = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
-        else:
-            h = CP.PropsSI("H", var1, val1_SI, var2, val2_SI, fluido_CP)
-            u = CP.PropsSI("U", var1, val1_SI, var2, val2_SI, fluido_CP)
-            s = CP.PropsSI("S", var1, val1_SI, var2, val2_SI, fluido_CP)
-
-        # Determinar región
-        Tcrit = CP.PropsSI("Tcrit", fluido_CP)
-        Pcrit = CP.PropsSI("Pcrit", fluido_CP)
+        Tcrit = CP.PropsSI("Tcrit", fluido)
+        Pcrit = CP.PropsSI("Pcrit", fluido)
         Q = None
-        if 'region' not in locals():
+
+        if T >= Tcrit or P >= Pcrit:
+            region = "Supercrítico / Vapor sobrecalentado"
+        else:
             try:
-                Psat = CP.PropsSI("P","T",T,"Q",0,fluido_CP)
-                v_l = 1 / CP.PropsSI("D","T",T,"Q",0,fluido_CP)
-                v_v = 1 / CP.PropsSI("D","T",T,"Q",1,fluido_CP)
-                if abs(P - Psat)/Psat < 1e-3 and v_l <= V <= v_v:
-                    region = "Mezcla saturada"
-                    Q = (V - v_l)/(v_v - v_l)
-                elif V < v_l:
-                    region = "Líquido comprimido"
+                Psat = CP.PropsSI("P", "T", T, "Q", 0, fluido)
+                if abs(P - Psat) / Psat < 1e-3:
+                    v_l = 1 / CP.PropsSI("D", "T", T, "Q", 0, fluido)
+                    v_v = 1 / CP.PropsSI("D", "T", T, "Q", 1, fluido)
+                    if v_l <= V <= v_v:
+                        region = "Mezcla saturada"
+                        Q = (V - v_l) / (v_v - v_l)
+                    elif V < v_l:
+                        region = "Líquido comprimido"
+                    else:
+                        region = "Vapor sobrecalentado"
                 else:
-                    region = "Vapor sobrecalentado"
-            except:
+                    region = "Compresible / fuera de saturación"
+            except Exception:
                 region = "Compresible / fuera de saturación"
 
-        return {"T":T,"P":P,"V":V,"h":h,"u":u,"s":s,"Q":Q,"region":region}
+        return {
+            "T": T, "P": P, "V": V,
+            "h": h, "u": u, "s": s,
+            "Q": Q, "region": region
+        }
 
     except Exception as e:
         raise ValueError(f"Error al calcular: {e}")
@@ -212,4 +135,5 @@ if st.button("Calcular propiedades"):
         if props["Q"] is not None:
             st.write(f"💧 Título (x): {props['Q']:.4f}")
     except Exception as e:
-        st.error(f"Error al calcular propiedades: {e}")
+        st.error(e)
+
